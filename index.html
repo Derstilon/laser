@@ -1,0 +1,341 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<!--https://www.elegantthemes.com/blog/resources/elegant-icon-font-->
+<head>
+    <title>Geometria</title>
+    <meta charset="utf-8" />
+    <link href="https://fonts.googleapis.com/css?family=Bungee|Quicksand" rel="stylesheet">
+    <script src="lib/three.js"></script>
+    <script src="lib/orbit.js"></script>
+    <script src="lib/Stats.js"></script>
+    <script src="lib/gui.min.js"></script>
+    <style type="text/css">
+        body {
+            margin: 0;
+            font-family: 'Quicksand', sans-serif;
+            overflow: hidden;
+            height: 100%;
+            height: 100vh;
+        }
+        #render {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;   
+        }
+        #niechaj{
+            position: fixed;
+            bottom: 1vmin;
+            left: 2.5vmin;
+            color: white;
+            font-size: 2vmin;
+            font-family: 'Bungee', cursive;
+            z-index: 12;
+            word-spacing: 1vmin;
+        }
+        #board{
+            width: 250px;
+            height: 700px;
+            position: fixed;
+            display: flex;
+            justify-content: space-around;
+            padding-left: 30px;
+            flex-direction: column;
+            top: 120px;
+            left: 20px;
+            background: rgba(0,0,0,0.2);
+        }
+        #board span{
+            display: block;
+            white-space:pre;
+            color: white;
+            font-weight: bold;
+        }
+    </style>
+    <script>
+            var scene,
+                camera,
+                //obj = levelData.getLevelData(),
+                szerokosc,
+                wysokosc,
+                renderer,
+                mouseVector,
+                raycaster,
+                axis,
+                //shadow,
+                ambientLight,
+                //player,
+                //clock,
+                stats,
+                fireEl = [],
+                materials = [],
+                size = 70,
+                parameters =
+                {
+                    fluid: false,
+                    laser: false,
+                    direction: true,
+                    width: 20,
+                    density: 250,
+                    speed: 30,
+                    wibly: 2,
+                    color: "#ff3300"
+                },
+                sphereMesh1,
+                sphereMesh2,
+                cubeMesh,
+                particleSystem,
+                particleMaterial,
+                particles,
+                laserPosition = [],
+                v1,
+                v2,
+                v3,
+                v4,
+                v5,
+                v6,
+                controls   //ruszanie myszką
+            function camera_update() {
+                camera.updateProjectionMatrix()
+            }
+            function updateLaser() {
+                particles.vertices = laserPosition
+                var verts = particles.vertices,
+                    subV = new THREE.Vector3(0, 0, 0)
+                subV.copy(v4)
+                stepV = subV.divideScalar(parameters.density)
+                for (var i = 0; i < verts.length; i++) {
+                    var particle = verts[i];
+                    // tu zmieniaj losowo pozycję x,y,z każdej z cząsteczek       
+                    particle.x = v1.x + stepV.x * i + Math.floor((Math.random() * parameters.wibly) - parameters.wibly/2)
+                    particle.y = v1.x + stepV.y * i + Math.floor((Math.random() * parameters.wibly) - parameters.wibly / 2)
+                    particle.z = v1.x + stepV.z * i + Math.floor((Math.random() * parameters.wibly) - parameters.wibly / 2)
+        
+                }
+
+                particleSystem.geometry.verticesNeedUpdate = true;
+            }
+            function updatePositions(){
+                cubeMesh.position = v3
+            }
+            function animateScene() {
+                stats.begin();
+                requestAnimationFrame(animateScene);
+                renderer.render(scene, camera);
+                updateLaser()
+                if (parameters.fluid == true) {
+                    if (parameters.direction == true) {
+                        v3.add(v6)
+                    } else {
+                        v3.sub(v6)
+                    }
+                }
+                vectors = document.getElementsByClassName("vector")
+                updatePositions()
+                vectors[0].textContent = "v1: " + JSON.stringify(v1, null, '\t')
+                vectors[1].textContent = "v2: " + JSON.stringify(v2, null, '\t')
+                vectors[2].textContent = "v3: " + JSON.stringify(v3, null, '\t')
+                vectors[3].textContent = "v4: " + JSON.stringify(v4, null, '\t')
+                vectors[4].textContent = "v5: " + JSON.stringify(v5, null, '\t')
+                stats.end();
+            }
+            function generateLaser(){
+                particleMaterial = new THREE.PointsMaterial({
+                        color: 0xff3300,
+                        size: parameters.width, // ta wartośc zmieniamy suwakiem skali
+                        map: THREE.ImageUtils.loadTexture("img/particle.png"), // grafika zapewniająca "okrągły" kształt cząsteczki
+                        blending: THREE.AdditiveBlending,
+                        transparent: true,
+                        depthWrite: false,
+                        opacity: 0
+                    })
+                var subV = new THREE.Vector3(0,0,0)
+                subV.copy(v4)
+                stepV = subV.divideScalar(parameters.density) // particlesCount - przewidywana ilość cząsteczek
+                particles = new THREE.Geometry()
+                for (var i = 0; i < parameters.density; i ++ ){
+                    var particle = new THREE.Vector3(
+		                v1.x + stepV.x * i,
+		                v1.y + stepV.y * i,
+		                v1.z + stepV.z * i) 
+                    particles.vertices.push(particle);
+                    laserPosition.push(particle)
+                }
+            }
+            function createLaser() {
+                generateLaser()
+                particleSystem = new THREE.Points(particles, particleMaterial);
+                scene.add(particleSystem)
+            }
+            function createVectors() {
+                v1 = sphereMesh1.position
+                v2 = sphereMesh2.position
+                v3 = cubeMesh.position
+                v4 = new THREE.Vector3(0, 0, 0)
+                v4.copy(v2)
+                v4.sub(v1)
+                v5 = new THREE.Vector3(20, 20, 20) //krok
+                v6 = new THREE.Vector3(1, 1, 1)
+            }
+            function createScene() {
+                var material,
+                    material2,
+                    sphereGeometry,
+                    cubeGeometry;
+                sphereGeometry = new THREE.SphereGeometry(10, 32, 32);
+                cubeGeometry = new THREE.CubeGeometry(15, 15, 15)
+                material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+                material2 = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+                sphereMesh1 = new THREE.Mesh(sphereGeometry, material);
+                sphereMesh2 = new THREE.Mesh(sphereGeometry, material);
+                cubeMesh = new THREE.Mesh(cubeGeometry, material2);
+                sphereMesh1.position.set(20, 20, 20)
+                sphereMesh2.position.set(100, 100, 100)
+                cubeMesh.position.set(20, 20, 20)
+                //camera.lookAt(sphereMesh1.position)
+                scene.add(sphereMesh1);
+                scene.add(sphereMesh2);
+                scene.add(cubeMesh);
+            }
+            function createRender() {
+                szerokosc = window.innerWidth
+                wysokosc = window.innerHeight
+                scene = new THREE.Scene()
+                camera = new THREE.PerspectiveCamera(
+                    45, // kąt patrzenia kamery (FOV - field of view)
+                    szerokosc / wysokosc, // proporcje widoku, powinny odpowiadać proporjom naszego ekranu przeglądarki
+                    0.1, // minimalna renderowana odległość
+                    10000 // maxymalna renderowana odległość
+                )
+                renderer = new THREE.WebGLRenderer();
+                raycaster = new THREE.Raycaster() // obiekt symulujący "rzucanie" promieni
+                mouseVector = new THREE.Vector2() // wektor (x,y) wykorzystany będzie do określenie pozycji myszy na ekranie
+                axis = new THREE.AxisHelper(750)
+                axis.material.opacity = 0.2
+                controls = new THREE.OrbitControls(camera)
+
+                //clock = new THREE.Clock();
+                renderer.setClearColor(0x282626);
+                renderer.setSize(szerokosc, wysokosc);
+                document.getElementById("render").appendChild(renderer.domElement);
+                ambientLight = new THREE.AmbientLight(0xffffff, 0.262); // soft white light
+                scene.add(ambientLight)
+                scene.add(camera)
+                scene.add(axis);
+                camera.position.x = -200
+                camera.position.y = 300
+                camera.position.z = 250
+                //controls.target.set(20, 20, 20)
+                camera.lookAt(scene.position)
+
+                window.addEventListener('resize', function (event) {
+                    camera.aspect = window.innerWidth / window.innerHeight
+                    // notify the renderer of the size change
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                    // update the camera
+                    camera.left = -window.innerWidth / 4.5;
+                    camera.right = window.innerWidth / 4.5;
+                    camera.top = window.innerHeight / 4.5;
+                    camera.bottom = -window.innerHeight / 4.5;
+                    camera_update()
+                })
+                //window.addEventListener("mouseup", camerapos, false);
+                stats = new Stats();
+                stats.showPanel(0);
+                stats.domElement.style.position = 'absolute';
+                stats.domElement.style.zIndex = 100;
+                document.body.appendChild(stats.dom);
+                controls.update()   //ruszanie myszką
+            }
+            function createGui() {
+                parameters.stepDown = function () {
+                    parameters.direction = false
+                    if (parameters.fluid == false) {
+                        v3.sub(v5)
+                    } else {
+                        v3.copy(v2)
+                    }
+                }
+                parameters.stepUp = function () {
+                    parameters.direction = true
+                    if (parameters.fluid == false) {
+                        v3 = v3.add(v5)
+                    } else {
+                        v3.copy(v1)
+                    }
+                }
+                var gui = new dat.GUI(),
+                    up = gui.add(parameters, 'stepUp').name('Do przodu'),
+                    down = gui.add(parameters, 'stepDown').name('Do tyłu'),
+                    width = gui.add(parameters, 'width').min(2).max(40).step(2).name('Szerokość').onChange(function(value) 
+                    {
+                        parameters.width = value;
+                        particleSystem.material.size = value
+                    }),
+                    density = gui.add(parameters, 'density').min(50).max(5000).step(50).name('Zagęszczenie').onChange(function (value)
+                    { 
+                        parameters.density = value;
+                        generateLaser()
+                        particleSystem.geometry = particles
+                    }),
+                    density = gui.add(parameters, 'wibly').min(0).max(10).step(0.5).name('Migotanie').onChange(function (value)
+                    {
+                        parameters.wibly = value;
+                    }),
+                    fluid = gui.add(parameters, 'fluid').name('Płynnie?').listen(),
+                    laser = gui.add(parameters, 'laser').name('Włączyć laser?').listen(),
+                    color = gui.addColor(parameters, 'color').name('Kolor')
+                color.onChange(function (value) {
+                    particleSystem.material.color.setHex(value.replace("#", "0x"));
+                })
+                laser.onChange(function (value) {
+                    if (value == true) {
+                        particleSystem.material.opacity = 0.6;
+                    } else {
+                        particleSystem.material.opacity = 0;
+                    }
+                });
+                /*var folder1 = gui.addFolder('Ognisko');
+                folder1.add(parameters, 'width').min(19).max(190).step(19).name('Szerokość').onChange(function(value) 
+                {   parameters.width = value;   });
+                folder1.add(parameters, 'height').min(225).max(1500).step(25).name('Wysokość').onChange(function (value)
+                { parameters.height = value; });
+                folder1.add(parameters, 'speed').min(9).max(100).step(1).name('Prędkość').onChange(function (value)
+                { parameters.speed = value; });
+                folder1.add(parameters, 'shake').min(3).max(17).step(2).name('Dynamika').onChange(function (value)
+                { parameters.shake = value; });
+                folder1.open();
+                gui.addColor(parameters, 'color').name('Kolor')
+                    .onChange(function (value)
+                {
+                    for (var i in fireEl ) {
+                        fireEl[i].material.color.setHex(value.replace("#", "0x"));
+                    }
+                });*/
+                gui.open();
+            }
+            function init() {
+                createRender()
+                createScene()
+                createVectors()
+                createLaser()
+                animateScene()
+                createGui()
+            }
+    </script>
+</head>
+<body onLoad="init()">
+    <div id="pojemnik">
+        <section id="render"></section>
+    </div>
+    <div id="board">
+        <span id="v1" class="vector" ></span>
+        <span id="v2" class="vector" ></span>
+        <span id="v3" class="vector" ></span>
+        <span id="v4" class="vector" ></span>
+        <span id="v5" class="vector" ></span>
+    </div>
+    <span id="niechaj">Niechaj 2017</span>
+</body>
+</html>
